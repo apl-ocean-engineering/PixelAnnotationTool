@@ -1,9 +1,18 @@
 
 #include "image_canvas.h"
 #include "main_window.h"
+#include <iostream>
 
 #include <QtDebug>
 #include <QtWidgets>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <bits/stdc++.h>
+#include <iostream>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 ImageCanvas::ImageCanvas(MainWindow *ui) :
     QLabel() ,
@@ -52,10 +61,29 @@ void ImageCanvas::loadImage(const QString &filename) {
 	QFileInfo file(_img_file);
 	if (!file.exists()) return;
 
+  int mask_file_length = file.dir().absolutePath().length();
+  int basename_length = file.dir().dirName().length();
+  //std::cout << basename_length << " " << mask_file_length << std::endl;
+  _upPath =  file.dir().absolutePath().mid(0,mask_file_length - basename_length);
+
+  QString pathname = _upPath + _savePathInformation.color_mask;
+  _createDirectories(pathname);
+  pathname = _upPath + _savePathInformation.mask;
+  _createDirectories(pathname);
+  pathname = _upPath + _savePathInformation.watershed_mask;
+  _createDirectories(pathname);
+  pathname = _upPath + _savePathInformation.raw_image;
+  _createDirectories(pathname);
+
 	_image = mat2QImage(cv::imread(_img_file.toStdString()));
-	
-	_mask_file = file.dir().absolutePath()+ "/" + file.baseName() + "_mask.png";
-	_watershed_file = file.dir().absolutePath()+ "/" + file.baseName() + "_watershed_mask.png";
+
+	_mask_file = _upPath + _savePathInformation.mask + "/" + file.baseName() + "_mask.png";
+  _raw_image_file = _upPath + _savePathInformation.raw_image + "/" + file.baseName() + ".png";
+
+  _watershed_file = _upPath + _savePathInformation.watershed_mask + "/" + file.baseName() + "_watershed_mask.png";
+  QString _watershed_file2 = _upPath + file.baseName() + "_watershed_mask.png";
+
+  //std::cout << _watershed_file2.toUtf8().constData() << std::endl;
 
 	_watershed = ImageMask(_image.size());
 	_undo_list.clear();
@@ -80,6 +108,8 @@ void ImageCanvas::saveMask() {
 	if (isFullZero(_mask.id))
 		return;
 
+
+  _image.save(_raw_image_file);
 	_mask.id.save(_mask_file);
 	if (!_watershed.id.isNull()) {
         QImage watershed = _watershed.id;
@@ -88,12 +118,24 @@ void ImageCanvas::saveMask() {
 //         }
 		watershed.save(_watershed_file);
 		QFileInfo file(_img_file);
-		QString color_file = file.dir().absolutePath() + "/" + file.baseName() + "_color_mask.png";
+		QString color_file = _upPath + _savePathInformation.color_mask + "/" + file.baseName() + "_color_mask.png";
 		idToColor(watershed, _ui->id_labels).save(color_file);
 	}
     _undo_list.clear();
     _undo_index = 0;
     _ui->setStarAtNameOfTab(false);
+}
+
+void ImageCanvas::_createDirectories(QString _path){
+  struct stat info;
+
+  const char *pathname =_path.toUtf8().constData();
+
+  if( stat( pathname, &info ) != 0 ){
+    // Creating a directory
+    if (mkdir(pathname, 0777) == -1)
+    else
+  }
 }
 
 void ImageCanvas::scaleChanged(double scale) {
@@ -123,12 +165,12 @@ void ImageCanvas::paintEvent(QPaintEvent *event) {
 	if (!_mask.id.isNull() && _ui->checkbox_manuel_mask->isChecked()) {
 		painter.drawImage(QPoint(0, 0), _mask.color);
 	}
-		
+
 	if (!_watershed.id.isNull() && _ui->checkbox_watershed_mask->isChecked()) {
 		painter.drawImage(QPoint(0, 0), _watershed.color);
 	}
 
-	if (_mouse_pos.x() > 10 && _mouse_pos.y() > 10 && 
+	if (_mouse_pos.x() > 10 && _mouse_pos.y() > 10 &&
 		_mouse_pos.x() <= QLabel::size().width()-10 &&
 		_mouse_pos.y() <= QLabel::size().height()-10) {
 		painter.setBrush(QBrush(_color.color));
@@ -142,7 +184,7 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent * e) {
 	_mouse_pos.setX(e->x());
 	_mouse_pos.setY(e->y());
 
-	if (_button_is_pressed) 
+	if (_button_is_pressed)
 		_drawFillCircle(e);
 
 	update();
@@ -156,7 +198,7 @@ void ImageCanvas::setSizePen(int pen_size) {
 void ImageCanvas::mouseReleaseEvent(QMouseEvent * e) {
 	if(e->button() == Qt::LeftButton) {
 		_button_is_pressed = false;
-		
+
 		if (_undo) {
 			QMutableListIterator<ImageMask> it(_undo_list);
 			int i = 0;
@@ -237,7 +279,7 @@ void ImageCanvas::clearMask() {
 	_undo_list.clear();
 	_undo_index = 0;
 	repaint();
-	
+
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent * event) {

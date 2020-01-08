@@ -10,6 +10,13 @@
 
 class MainWindow;
 
+struct SavePathInformation{
+	QString raw_image = "raw_image";
+	QString color_mask = "color_mask";
+	QString  mask = "mask";
+	QString  watershed_mask = "watershed_mask";
+};
+
 class ImageCanvas : public QLabel {
 	Q_OBJECT
 
@@ -48,12 +55,13 @@ public slots :
 	void saveMask();
 	void undo();
 	void redo();
-	
+
 private:
 	MainWindow *_ui;
-	
+
 	void _initPixmap();
 	void _drawFillCircle(QMouseEvent * e);
+	void _createDirectories(QString pathname);
 
 	QScrollArea     *_scroll_parent    ;
 	double           _scale            ;
@@ -66,11 +74,15 @@ private:
 	int              _undo_index       ;
 	QPoint           _mouse_pos        ;
 	QString          _img_file         ;
+	QString 				 _raw_image_file   ;
 	QString          _mask_file        ;
 	QString          _watershed_file   ;
 	ColorMask        _color            ;
 	int              _pen_size         ;
 	bool             _button_is_pressed;
+	QString 				 _upPath					 ;
+	SavePathInformation _savePathInformation;
+
 
 };
 
